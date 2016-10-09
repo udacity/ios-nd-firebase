@@ -66,12 +66,11 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     // MARK: Config
     
     func configureAuth() {
-        let provider: [FIRAuthProviderUI] = [
-            FIRGoogleAuthUI()]
+        let provider: [FIRAuthProviderUI] = [FIRGoogleAuthUI()]
         FIRAuthUI.default()?.providers = provider
         
         // listen for changes in the authorization state
-        _authHandle = FIRAuth.auth()?.addStateDidChangeListener { (auth:FIRAuth, user:FIRUser?) in
+        _authHandle = FIRAuth.auth()?.addStateDidChangeListener { (auth: FIRAuth, user: FIRUser?) in
             // refresh table data
             self.messages.removeAll(keepingCapacity: false)
             self.messagesTable.reloadData()
@@ -79,18 +78,16 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
             // check if there is a current user
             if let activeUser = user {
                 // check if the current app user is the current FIRUser
-                if(self.user != activeUser){
+                if self.user != activeUser {
                     self.user = activeUser
                     self.signedInStatus(true)
                     let name = user!.email!.components(separatedBy: "@")[0]
                     self.displayName = name
                 }
-                // if there is no current user
             } else {
                 // user must sign in
                 self.signedInStatus(false)
-                self.loginSession()
-                
+                self.loginSession()                
             }
         }
     }
@@ -121,7 +118,6 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
         let remoteConfigSettings = FIRRemoteConfigSettings(developerModeEnabled: true)
         remoteConfig = FIRRemoteConfig.remoteConfig()
         remoteConfig.configSettings = remoteConfigSettings!
-
     }
     
     func fetchConfig() {
@@ -159,8 +155,7 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
         imageMessage.isHidden = !isSignedIn
         backgroundBlur.effect = UIBlurEffect(style: .light)
         
-        if (isSignedIn) {
-            
+        if isSignedIn {
             // remove background blur (will use when showing image messages)
             messagesTable.rowHeight = UITableViewAutomaticDimension
             messagesTable.estimatedRowHeight = 122.0
@@ -176,7 +171,7 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     
     func loginSession() {
         let authViewController = FIRAuthUI.default()!.authViewController()
-        self.present(authViewController, animated: true, completion: nil)
+        present(authViewController, animated: true, completion: nil)
     }
 
     
@@ -196,7 +191,7 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
         let metadata = FIRStorageMetadata()
         metadata.contentType = "image/jpeg"
         // create a child node at imagePath with imageData and metadata
-        self.storageRef!.child(imagePath).put(imageData, metadata: metadata) { (metadata, error) in
+        storageRef!.child(imagePath).put(imageData, metadata: metadata) { (metadata, error) in
             if let error = error {
                 print("Error uploading: \(error)")
                 return
@@ -280,7 +275,7 @@ extension FCViewController: UITableViewDelegate, UITableViewDataSource {
         // dequeue cell
         let cell: UITableViewCell! = messagesTable.dequeueReusableCell(withIdentifier: "messageCell", for: indexPath)
         // unpack message from firebase data snapshot
-        let messageSnapshot: FIRDataSnapshot! = messages[(indexPath as NSIndexPath).row]
+        let messageSnapshot = messages[indexPath.row]
         let message = messageSnapshot.value as! [String: String]
         let name = message[Constants.MessageFields.name] ?? "[username]"
         // if image message, then grab image and display it
@@ -312,7 +307,7 @@ extension FCViewController: UITableViewDelegate, UITableViewDataSource {
             // otherwise, update cell for regular message
             let text = message[Constants.MessageFields.text] ?? "[message]"
             cell!.textLabel?.text = name + ": " + text
-            cell!.imageView?.image = self.placeholderImage
+            cell!.imageView?.image = placeholderImage
         }
         return cell!
     }
@@ -400,13 +395,13 @@ extension FCViewController: UITextFieldDelegate {
     
     func keyboardWillShow(_ notification: Notification) {
         if !keyboardOnScreen {
-            self.view.frame.origin.y -= self.keyboardHeight(notification)
+            view.frame.origin.y -= keyboardHeight(notification)
         }
     }
     
     func keyboardWillHide(_ notification: Notification) {
         if keyboardOnScreen {
-            self.view.frame.origin.y += self.keyboardHeight(notification)
+            view.frame.origin.y += keyboardHeight(notification)
         }
     }
     

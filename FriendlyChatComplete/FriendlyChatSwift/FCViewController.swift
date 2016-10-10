@@ -14,7 +14,6 @@
 //  limitations under the License.
 //
 
-import Photos
 import UIKit
 import Firebase
 import FirebaseAuthUI
@@ -80,13 +79,13 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
                 // check if the current app user is the current FIRUser
                 if self.user != activeUser {
                     self.user = activeUser
-                    self.signedInStatus(true)
+                    self.signedInStatus(isSignedIn: true)
                     let name = user!.email!.components(separatedBy: "@")[0]
                     self.displayName = name
                 }
             } else {
                 // user must sign in
-                self.signedInStatus(false)
+                self.signedInStatus(isSignedIn: false)
                 self.loginSession()                
             }
         }
@@ -146,7 +145,7 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     
     // MARK: Sign In and Out
     
-    func signedInStatus(_ isSignedIn: Bool) {
+    func signedInStatus(isSignedIn: Bool) {
         signInButton.isHidden = isSignedIn
         signOutButton.isHidden = !isSignedIn
         messagesTable.isHidden = !isSignedIn
@@ -177,33 +176,33 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     
     // MARK: Send Message
     
-    func sendMessage(_ data: [String:String]) {
+    func sendMessage(data: [String:String]) {
         var mdata = data
         // add name to message and then data to firebase database
         mdata[Constants.MessageFields.name] = displayName
         ref.child("messages").childByAutoId().setValue(mdata)
     }
     
-    func sendImageMessage(_ imageData: Data) {
+    func sendPhotoMessage(photoData: Data) {
         // build a path using the user’s ID and a timestamp
-        let imagePath =  "chat_photos/" + FIRAuth.auth()!.currentUser!.uid + "/\(Double(Date.timeIntervalSinceReferenceDate * 1000)).jpg"
+        let imagePath = "chat_photos/" + FIRAuth.auth()!.currentUser!.uid + "/\(Double(Date.timeIntervalSinceReferenceDate * 1000)).jpg"
         // set content type to “image/jpeg” in firebase storage metadata
         let metadata = FIRStorageMetadata()
         metadata.contentType = "image/jpeg"
         // create a child node at imagePath with imageData and metadata
-        storageRef!.child(imagePath).put(imageData, metadata: metadata) { (metadata, error) in
+        storageRef!.child(imagePath).put(photoData, metadata: metadata) { (metadata, error) in
             if let error = error {
                 print("Error uploading: \(error)")
                 return
             }
             // use sendMessage to add imageURL to database
-            self.sendMessage([Constants.MessageFields.imageUrl: self.storageRef!.child((metadata?.path)!).description])
+            self.sendMessage(data: [Constants.MessageFields.imageUrl: self.storageRef!.child((metadata?.path)!).description])
         }
     }
     
     // MARK: Alert
     
-    func showAlert(_ title: String, message: String) {
+    func showAlert(title: String, message: String) {
         DispatchQueue.main.async {
             let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
             let dismissAction = UIAlertAction(title: "Dismiss", style: .destructive, handler: nil)
@@ -359,9 +358,9 @@ extension FCViewController: UIImagePickerControllerDelegate {
     
     func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [String:Any]) {
         // constant to hold the information about the photo
-        if let originalImage = info[UIImagePickerControllerOriginalImage] as? UIImage, let imageData = UIImageJPEGRepresentation(originalImage, 0.8) {
-            // call function to upload image message
-            sendImageMessage(imageData)
+        if let photo = info[UIImagePickerControllerOriginalImage] as? UIImage, let photoData = UIImageJPEGRepresentation(photo, 0.8) {
+            // call function to upload photo message
+            sendPhotoMessage(photoData: photoData)
         }
         picker.dismiss(animated: true, completion: nil)
     }
@@ -385,7 +384,7 @@ extension FCViewController: UITextFieldDelegate {
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
         if !textField.text!.isEmpty {
             let data = [Constants.MessageFields.text: textField.text! as String]
-            sendMessage(data)
+            sendMessage(data: data)
             textField.resignFirstResponder()
         }
         return true

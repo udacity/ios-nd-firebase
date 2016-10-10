@@ -14,7 +14,6 @@
 //  limitations under the License.
 //
 
-import Photos
 import UIKit
 import Firebase
 import FirebaseAuthUI
@@ -132,13 +131,13 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
         // TODO: create method that pushes message to the firebase database
     }
     
-    func sendImageMessage(_ imageData: Data) {
-        // TODO: create method that pushes message w/ image to the firebase database
+    func sendPhotoMessage(photoData: Data) {
+        // TODO: create method that pushes message w/ photo to the firebase database
     }
     
     // MARK: Alert
     
-    func showAlert(_ title: String, message: String) {
+    func showAlert(title: String, message: String) {
         DispatchQueue.main.async {
             let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
             let dismissAction = UIAlertAction(title: "Dismiss", style: .destructive, handler: nil)
@@ -254,9 +253,9 @@ extension FCViewController: UIImagePickerControllerDelegate {
     
     func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [String:Any]) {
         // constant to hold the information about the photo
-        if let originalImage = info[UIImagePickerControllerOriginalImage] as? UIImage, let imageData = UIImageJPEGRepresentation(originalImage, 0.8) {
-            // call function to upload image message
-            sendImageMessage(imageData)
+        if let photo = info[UIImagePickerControllerOriginalImage] as? UIImage, let photoData = UIImageJPEGRepresentation(photo, 0.8) {
+            // call function to upload photo message
+            sendPhotoMessage(photoData: photoData)
         }
         picker.dismiss(animated: true, completion: nil)
     }

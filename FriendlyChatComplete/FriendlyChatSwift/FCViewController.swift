@@ -65,8 +65,8 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     // MARK: Config
     
     func configureAuth() {
-        let provider: [FIRAuthProviderUI] = [FIRGoogleAuthUI()]
-        FIRAuthUI.default()?.providers = provider
+        let provider: [FUIAuthProvider] = [FUIGoogleAuth()]
+        FUIAuth.defaultAuthUI()?.providers = provider
         
         // listen for changes in the authorization state
         _authHandle = FIRAuth.auth()?.addStateDidChangeListener { (auth: FIRAuth, user: FIRUser?) in
@@ -169,7 +169,7 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     }
     
     func loginSession() {
-        let authViewController = FIRAuthUI.default()!.authViewController()
+        let authViewController = FUIAuth.defaultAuthUI()!.authViewController()
         present(authViewController, animated: true, completion: nil)
     }
 

@@ -18,13 +18,6 @@ import UIKit
 import Firebase
 import FirebaseAuthUI
 
-// Your Google app's client ID, which can be found in the GoogleService-Info.plist file
-// and is stored in the `clientID` property of your FIRApp options.
-// Firebase Google auth is built on top of Google sign-in, so you'll have to add a URL
-// scheme to your project as outlined at the bottom of this reference:
-// https://developers.google.com/identity/sign-in/ios/start-integrating
-let kGoogleAppClientID = (FIRApp.defaultApp()?.options.clientID)!
-
 // MARK: - FCViewController
 
 class FCViewController: UIViewController, UINavigationControllerDelegate {

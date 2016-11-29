@@ -70,7 +70,7 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     }
     
     func configureDatabase() {
-        // TODO: configure database to sync messages
+        ref = FIRDatabase.database().reference()
     }
     
     func configureStorage() {
@@ -114,14 +114,18 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     }
     
     func loginSession() {
-        let authViewController = FUIAuth.defaultAuthUI()!.authViewController()
+        let authViewController = FIRAuthUI.authUI()!.authViewController()
         self.present(authViewController, animated: true, completion: nil)
     }
     
     // MARK: Send Message
     
     func sendMessage(data: [String:String]) {
-        // TODO: create method that pushes message to the firebase database
+        
+        var mdata = data
+        mdata[Constants.MessageFields.name] = displayName
+        
+        ref.child("messages").childByAutoId().setValue(mdata)
     }
     
     func sendPhotoMessage(photoData: Data) {

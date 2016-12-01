@@ -35,10 +35,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
     
     func application(_ application: UIApplication, open url: URL, sourceApplication: String?, annotation: Any) -> Bool {
-        if FIRAuthUI.default()?.handleOpen(url, sourceApplication: sourceApplication) ?? false {
-            return true
-        }
-        // other URL handling goes here.
-        return false
+        return FIRAuthUI.default()?.handleOpen(url, sourceApplication: sourceApplication) ?? false
     }
 }

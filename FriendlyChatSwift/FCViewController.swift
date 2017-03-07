@@ -14,20 +14,23 @@
 //  limitations under the License.
 //
 
+import Photos
 import UIKit
 import Firebase
+import FirebaseDatabaseUI
 import FirebaseAuthUI
 import FirebaseGoogleAuthUI
 
 // MARK: - FCViewController
 
-class FCViewController: UIViewController, UINavigationControllerDelegate {
+class FCViewController: UIViewController, UINavigationControllerDelegate, UITableViewDataSource, UITableViewDelegate {
     
     // MARK: Properties
     
     var ref: FIRDatabaseReference!
     var messages: [FIRDataSnapshot]! = []
-    var msglength: NSNumber = 1000
+    fileprivate var message : FIRDataSnapshot!
+    var msglength: NSNumber = 300
     var storageRef: FIRStorageReference!
     var remoteConfig: FIRRemoteConfig!
     let imageCache = NSCache<NSString, UIImage>()
@@ -35,7 +38,9 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     var placeholderImage = UIImage(named: "ic_account_circle")
     fileprivate var _refHandle: FIRDatabaseHandle!
     fileprivate var _authHandle: FIRAuthStateDidChangeListenerHandle!
+    var dataSource: FUITableViewDataSource!
     var user: FIRUser?
+    fileprivate var query: FIRDatabaseQuery?
     var displayName = "Anonymous"
     
     // MARK: Outlets
@@ -54,9 +59,12 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     // MARK: Life Cycle
     
     override func viewDidLoad() {
+        super.viewDidLoad()
+        self.messagesTable.delegate = self
         configureAuth()
     }
-        
+    
+    
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         unsubscribeFromAllNotifications()
@@ -77,28 +85,42 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
             // check if there is a current user
             if let activeUser = user {
                 // check if the current app user is the current FIRUser
-                if self.user != activeUser {
+                if(self.user != activeUser){
                     self.user = activeUser
-                    self.signedInStatus(isSignedIn: true)
+                    self.signedInStatus(true)
                     let name = user!.email!.components(separatedBy: "@")[0]
+                    //AppState.sharedInstance.
                     self.displayName = name
                 }
+                // if there is no current user
             } else {
                 // user must sign in
-                self.signedInStatus(isSignedIn: false)
-                self.loginSession()                
+                self.signedInStatus(false)
+                self.loginSession()
             }
         }
     }
     
     func configureDatabase() {
-        ref = FIRDatabase.database().reference()
-        // listen for new messages in the firebase database
-        _refHandle = ref.child("messages").observe(.childAdded) { (snapshot: FIRDataSnapshot)in
-            self.messages.append(snapshot)
-            self.messagesTable.insertRows(at: [IndexPath(row: self.messages.count-1, section: 0)], with: .automatic)
-            self.scrollToBottomMessage()
+        ref = FIRDatabase.database().reference().child("messages")
+
+        self.query = self.ref.queryLimited(toLast: 50)
+        
+        messagesTable.dataSource = dataSource
+        
+        self.dataSource = self.messagesTable.bind(to: self.ref) { tableView, indexPath, snapshot in
+            
+            guard let cell = tableView.dequeueReusableCell(withIdentifier: "messageCell", for: indexPath) as? FCTableViewCell else {
+                fatalError("Cell not found")
+            }
+            
+            self.message = snapshot
+            cell.createChat(message: self.message, user: self.user!)
+            return cell
         }
+        self.query!.observe(.childAdded, with: { [unowned self] _ in
+            self.scrollToBottomMessage()
+            })
     }
     
     func configureStorage() {
@@ -117,6 +139,7 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
         let remoteConfigSettings = FIRRemoteConfigSettings(developerModeEnabled: true)
         remoteConfig = FIRRemoteConfig.remoteConfig()
         remoteConfig.configSettings = remoteConfigSettings!
+
     }
     
     func fetchConfig() {
@@ -145,16 +168,16 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     
     // MARK: Sign In and Out
     
-    func signedInStatus(isSignedIn: Bool) {
+    func signedInStatus(_ isSignedIn: Bool) {
         signInButton.isHidden = isSignedIn
         signOutButton.isHidden = !isSignedIn
         messagesTable.isHidden = !isSignedIn
         messageTextField.isHidden = !isSignedIn
         sendButton.isHidden = !isSignedIn
         imageMessage.isHidden = !isSignedIn
-        backgroundBlur.effect = UIBlurEffect(style: .light)
         
-        if isSignedIn {
+        if (isSignedIn) {
+            
             // remove background blur (will use when showing image messages)
             messagesTable.rowHeight = UITableViewAutomaticDimension
             messagesTable.estimatedRowHeight = 122.0
@@ -176,11 +199,11 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     
     // MARK: Send Message
     
-    func sendMessage(data: [String:String]) {
+    func sendMessage(_ data: [String:String]) {
         var mdata = data
         // add name to message and then data to firebase database
         mdata[Constants.MessageFields.name] = displayName
-        ref.child("messages").childByAutoId().setValue(mdata)
+        ref.childByAutoId().setValue(mdata)
     }
     
     func sendPhotoMessage(photoData: Data) {
@@ -196,13 +219,13 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
                 return
             }
             // use sendMessage to add imageURL to database
-            self.sendMessage(data: [Constants.MessageFields.imageUrl: self.storageRef!.child((metadata?.path)!).description])
+            self.sendMessage([Constants.MessageFields.photoUrl: self.storageRef!.child((metadata?.path)!).description])
         }
     }
     
     // MARK: Alert
     
-    func showAlert(title: String, message: String) {
+    func showAlert(_ title: String, message: String) {
         DispatchQueue.main.async {
             let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
             let dismissAction = UIAlertAction(title: "Dismiss", style: .destructive, handler: nil)
@@ -241,7 +264,7 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     }
     
     @IBAction func didSendMessage(_ sender: UIButton) {
-        let _ = textFieldShouldReturn(messageTextField)
+        textFieldShouldReturn(messageTextField)
         messageTextField.text = ""
     }
     
@@ -260,84 +283,48 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     @IBAction func tappedView(_ sender: AnyObject) {
         resignTextfield()
     }
-}
+
 
 // MARK: - FCViewController: UITableViewDelegate, UITableViewDataSource
 
-extension FCViewController: UITableViewDelegate, UITableViewDataSource {
-    
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return messages.count
     }
     
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        // dequeue cell
-        let cell: UITableViewCell! = messagesTable.dequeueReusableCell(withIdentifier: "messageCell", for: indexPath)
-        // unpack message from firebase data snapshot
-        let messageSnapshot = messages[indexPath.row]
-        let message = messageSnapshot.value as! [String: String]
-        let name = message[Constants.MessageFields.name] ?? "[username]"
-        // if image message, then grab image and display it
-        if let imageUrl = message[Constants.MessageFields.imageUrl] {
-            cell!.textLabel?.text = "sent by: \(name)"
-            // image already exists in cache
-            if let cachedImage = imageCache.object(forKey: imageUrl as NSString) {
-                cell.imageView?.image = cachedImage
-                cell.setNeedsLayout()
-            } else {
-                // download image
-                FIRStorage.storage().reference(forURL: imageUrl).data(withMaxSize: INT64_MAX){ (data, error) in
-                    guard error == nil else {
-                        print("Error downloading: \(error!)")
-                        return
-                    }
-                    let messageImage = UIImage.init(data: data!, scale: 50)
-                    self.imageCache.setObject(messageImage!, forKey: imageUrl as NSString as NSString)
-                    // check if the cell is still on screen, if so, update cell image
-                    if cell == tableView.cellForRow(at: indexPath) {
-                        DispatchQueue.main.async {
-                            cell.imageView?.image = messageImage
-                            cell.setNeedsLayout()
-                        }
-                    }
-                }
-            }
-        } else {
-            // otherwise, update cell for regular message
-            let text = message[Constants.MessageFields.text] ?? "[message]"
-            cell!.textLabel?.text = name + ": " + text
-            cell!.imageView?.image = placeholderImage
-        }
-        return cell!
+    @objc(tableView:cellForRowAtIndexPath:) func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+
+        let cell = self.messagesTable.dequeueReusableCell(withIdentifier: "messageCell") as! FCTableViewCell
+
+        return cell
     }
     
     func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
+        tableView.estimatedRowHeight = 200
         return UITableViewAutomaticDimension
     }
     
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+   func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         // skip if keyboard is shown
         guard !messageTextField.isFirstResponder else { return }
         // unpack message from firebase data snapshot
-        let messageSnapshot: FIRDataSnapshot! = messages[(indexPath as NSIndexPath).row]
-        let message = messageSnapshot.value as! [String: String]
+        self.messagesTable.deselectRow(at: indexPath, animated: true)
+        self.message = self.dataSource.snapshot(at: (indexPath as NSIndexPath).row)
         // if tapped row with image message, then display image
-        if let imageUrl = message[Constants.MessageFields.imageUrl] {
-            if let cachedImage = imageCache.object(forKey: imageUrl as NSString) {
+        if let photoUrl = message.childSnapshot(forPath: Constants.MessageFields.photoUrl).value as? String  {
+            if let cachedImage = imageCache.object(forKey: photoUrl as NSString) {
                 showImageDisplay(cachedImage)
             } else {
-                FIRStorage.storage().reference(forURL: imageUrl).data(withMaxSize: INT64_MAX){ (data, error) in
-                    guard error == nil else {
-                        print("Error downloading: \(error!)")
+                FIRStorage.storage().reference(forURL: photoUrl).data(withMaxSize: INT64_MAX, completion: { (Data, Error) in
+                    guard Error == nil else {
+                        print("Error downloading: \(Error!)")
                         return
                     }
-                    self.showImageDisplay(UIImage.init(data: data!)!)
-                }
+                    self.showImageDisplay(UIImage.init(data: Data!)!)
+                })
             }
-            
         }
     }
-    
+
     // MARK: Show Image Display
     
     func showImageDisplay(_ image: UIImage) {
@@ -358,9 +345,9 @@ extension FCViewController: UIImagePickerControllerDelegate {
     
     func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [String:Any]) {
         // constant to hold the information about the photo
-        if let photo = info[UIImagePickerControllerOriginalImage] as? UIImage, let photoData = UIImageJPEGRepresentation(photo, 0.8) {
-            // call function to upload photo message
-            sendPhotoMessage(photoData: photoData)
+        if let originalImage = info[UIImagePickerControllerOriginalImage] as? UIImage, let imageData = UIImageJPEGRepresentation(originalImage, 0.8) {
+            // call function to upload image message
+            sendPhotoMessage(photoData: imageData)
         }
         picker.dismiss(animated: true, completion: nil)
     }
@@ -384,7 +371,7 @@ extension FCViewController: UITextFieldDelegate {
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
         if !textField.text!.isEmpty {
             let data = [Constants.MessageFields.text: textField.text! as String]
-            sendMessage(data: data)
+            sendMessage(data)
             textField.resignFirstResponder()
         }
         return true
@@ -394,13 +381,13 @@ extension FCViewController: UITextFieldDelegate {
     
     func keyboardWillShow(_ notification: Notification) {
         if !keyboardOnScreen {
-            view.frame.origin.y -= keyboardHeight(notification)
+            self.view.frame.origin.y -= self.keyboardHeight(notification)
         }
     }
     
     func keyboardWillHide(_ notification: Notification) {
         if keyboardOnScreen {
-            view.frame.origin.y += keyboardHeight(notification)
+            self.view.frame.origin.y += self.keyboardHeight(notification)
         }
     }
     
@@ -431,14 +418,14 @@ extension FCViewController: UITextFieldDelegate {
 extension FCViewController {
     
     func subscribeToKeyboardNotifications() {
-        subscribeToNotification(.UIKeyboardWillShow, selector: #selector(keyboardWillShow))
-        subscribeToNotification(.UIKeyboardWillHide, selector: #selector(keyboardWillHide))
-        subscribeToNotification(.UIKeyboardDidShow, selector: #selector(keyboardDidShow))
-        subscribeToNotification(.UIKeyboardDidHide, selector: #selector(keyboardDidHide))
+        subscribeToNotification(NSNotification.Name.UIKeyboardWillShow.rawValue, selector: #selector(keyboardWillShow))
+        subscribeToNotification(NSNotification.Name.UIKeyboardWillHide.rawValue, selector: #selector(keyboardWillHide))
+        subscribeToNotification(NSNotification.Name.UIKeyboardDidShow.rawValue, selector: #selector(keyboardDidShow))
+        subscribeToNotification(NSNotification.Name.UIKeyboardDidHide.rawValue, selector: #selector(keyboardDidHide))
     }
     
-    func subscribeToNotification(_ name: NSNotification.Name, selector: Selector) {
-        NotificationCenter.default.addObserver(self, selector: selector, name: name, object: nil)
+    func subscribeToNotification(_ notification: String, selector: Selector) {
+        NotificationCenter.default.addObserver(self, selector: selector, name: NSNotification.Name(rawValue: notification), object: nil)
     }
     
     func unsubscribeFromAllNotifications() {

@@ -24,17 +24,17 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     
     // MARK: Properties
     
-    var ref: FIRDatabaseReference!
-    var messages: [FIRDataSnapshot]! = []
+    var ref: DatabaseReference!
+    var messages: [DataSnapshot]! = []
     var msglength: NSNumber = 1000
-    var storageRef: FIRStorageReference!
-    var remoteConfig: FIRRemoteConfig!
+    var storageRef: StorageReference!
+    var remoteConfig: RemoteConfig!
     let imageCache = NSCache<NSString, UIImage>()
     var keyboardOnScreen = false
     var placeholderImage = UIImage(named: "ic_account_circle")
-    fileprivate var _refHandle: FIRDatabaseHandle!
-    fileprivate var _authHandle: FIRAuthStateDidChangeListenerHandle!
-    var user: FIRUser?
+    fileprivate var _refHandle: DatabaseHandle!
+    fileprivate var _authHandle: AuthStateDidChangeListenerHandle!
+    var user: User?
     var displayName = "Anonymous"
     
     // MARK: Outlets
@@ -162,7 +162,7 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     
     @IBAction func signOut(_ sender: UIButton) {
         do {
-            try FIRAuth.auth()?.signOut()
+            try Auth.auth().signOut()
         } catch {
             print("unable to sign out: \(error)")
         }

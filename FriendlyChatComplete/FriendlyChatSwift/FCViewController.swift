@@ -25,17 +25,17 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     
     // MARK: Properties
     
-    var ref: FIRDatabaseReference!
-    var messages: [FIRDataSnapshot]! = []
+    var ref: DatabaseReference!
+    var messages: [DataSnapshot]! = []
     var msglength: NSNumber = 1000
-    var storageRef: FIRStorageReference!
-    var remoteConfig: FIRRemoteConfig!
+    var storageRef: StorageReference!
+    var remoteConfig: RemoteConfig!
     let imageCache = NSCache<NSString, UIImage>()
     var keyboardOnScreen = false
     var placeholderImage = UIImage(named: "ic_account_circle")
-    fileprivate var _refHandle: FIRDatabaseHandle!
-    fileprivate var _authHandle: FIRAuthStateDidChangeListenerHandle!
-    var user: FIRUser?
+    fileprivate var _refHandle: DatabaseHandle!
+    fileprivate var _authHandle: AuthStateDidChangeListenerHandle!
+    var user: User?
     var displayName = "Anonymous"
     
     // MARK: Outlets
@@ -69,7 +69,7 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
         FUIAuth.defaultAuthUI()?.providers = provider
         
         // listen for changes in the authorization state
-        _authHandle = FIRAuth.auth()?.addStateDidChangeListener { (auth: FIRAuth, user: FIRUser?) in
+        _authHandle = Auth.auth().addStateDidChangeListener { (auth: Auth, user: User?) in
             // refresh table data
             self.messages.removeAll(keepingCapacity: false)
             self.messagesTable.reloadData()
@@ -92,9 +92,9 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     }
     
     func configureDatabase() {
-        ref = FIRDatabase.database().reference()
+        ref = Database.database().reference()
         // listen for new messages in the firebase database
-        _refHandle = ref.child("messages").observe(.childAdded) { (snapshot: FIRDataSnapshot)in
+        _refHandle = ref.child("messages").observe(.childAdded) { (snapshot: DataSnapshot)in
             self.messages.append(snapshot)
             self.messagesTable.insertRows(at: [IndexPath(row: self.messages.count-1, section: 0)], with: .automatic)
             self.scrollToBottomMessage()
@@ -102,20 +102,20 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     }
     
     func configureStorage() {
-        storageRef = FIRStorage.storage().reference()
+        storageRef = Storage.storage().reference()
     }
     
     deinit {
         ref.child("messages").removeObserver(withHandle: _refHandle)
-        FIRAuth.auth()?.removeStateDidChangeListener(_authHandle)
+        Auth.auth().removeStateDidChangeListener(_authHandle)
     }
     
     // MARK: Remote Config
     
     func configureRemoteConfig() {
         // create remote config setting to enable developer mode
-        let remoteConfigSettings = FIRRemoteConfigSettings(developerModeEnabled: true)
-        remoteConfig = FIRRemoteConfig.remoteConfig()
+        let remoteConfigSettings = RemoteConfigSettings(developerModeEnabled: true)
+        remoteConfig = RemoteConfig.remoteConfig()
         remoteConfig.configSettings = remoteConfigSettings!
     }
     
@@ -138,7 +138,7 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
                 }
             } else {
                 print("Config not fetched")
-                print("Error \(error)")
+                print("Error \(String(describing: error))")
             }
         }
     }
@@ -185,12 +185,12 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     
     func sendPhotoMessage(photoData: Data) {
         // build a path using the user’s ID and a timestamp
-        let imagePath = "chat_photos/" + FIRAuth.auth()!.currentUser!.uid + "/\(Double(Date.timeIntervalSinceReferenceDate * 1000)).jpg"
+        let imagePath = "chat_photos/" + Auth.auth().currentUser!.uid + "/\(Double(Date.timeIntervalSinceReferenceDate * 1000)).jpg"
         // set content type to “image/jpeg” in firebase storage metadata
-        let metadata = FIRStorageMetadata()
+        let metadata = StorageMetadata()
         metadata.contentType = "image/jpeg"
         // create a child node at imagePath with imageData and metadata
-        storageRef!.child(imagePath).put(photoData, metadata: metadata) { (metadata, error) in
+        storageRef!.child(imagePath).putData(photoData, metadata: metadata) { (metadata, error) in
             if let error = error {
                 print("Error uploading: \(error)")
                 return
@@ -234,7 +234,7 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     
     @IBAction func signOut(_ sender: UIButton) {
         do {
-            try FIRAuth.auth()?.signOut()
+            try Auth.auth().signOut()
         } catch {
             print("unable to sign out: \(error)")
         }
@@ -286,7 +286,7 @@ extension FCViewController: UITableViewDelegate, UITableViewDataSource {
                 cell.setNeedsLayout()
             } else {
                 // download image
-                FIRStorage.storage().reference(forURL: imageUrl).data(withMaxSize: INT64_MAX){ (data, error) in
+                Storage.storage().reference(forURL: imageUrl).getData(maxSize: INT64_MAX, completion: { (data, error) in
                     guard error == nil else {
                         print("Error downloading: \(error!)")
                         return
@@ -300,7 +300,7 @@ extension FCViewController: UITableViewDelegate, UITableViewDataSource {
                             cell.setNeedsLayout()
                         }
                     }
-                }
+                })
             }
         } else {
             // otherwise, update cell for regular message
@@ -319,22 +319,21 @@ extension FCViewController: UITableViewDelegate, UITableViewDataSource {
         // skip if keyboard is shown
         guard !messageTextField.isFirstResponder else { return }
         // unpack message from firebase data snapshot
-        let messageSnapshot: FIRDataSnapshot! = messages[(indexPath as NSIndexPath).row]
+        let messageSnapshot: DataSnapshot! = messages[(indexPath as NSIndexPath).row]
         let message = messageSnapshot.value as! [String: String]
         // if tapped row with image message, then display image
         if let imageUrl = message[Constants.MessageFields.imageUrl] {
             if let cachedImage = imageCache.object(forKey: imageUrl as NSString) {
                 showImageDisplay(cachedImage)
             } else {
-                FIRStorage.storage().reference(forURL: imageUrl).data(withMaxSize: INT64_MAX){ (data, error) in
+                Storage.storage().reference(forURL: imageUrl).getData(maxSize: INT64_MAX, completion: { (data, error) in
                     guard error == nil else {
                         print("Error downloading: \(error!)")
                         return
                     }
                     self.showImageDisplay(UIImage.init(data: data!)!)
-                }
+                })
             }
-            
         }
     }
     

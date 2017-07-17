@@ -162,7 +162,7 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     
     @IBAction func signOut(_ sender: UIButton) {
         do {
-            try FIRAuth.auth()?.signOut()
+            try FIRAuth.auth().signOut()
         } catch {
             print("unable to sign out: \(error)")
         }

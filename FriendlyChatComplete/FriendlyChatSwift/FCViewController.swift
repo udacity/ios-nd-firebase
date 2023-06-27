@@ -114,26 +114,27 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
     
     func configureRemoteConfig() {
         // create remote config setting to enable developer mode
-        let remoteConfigSettings = RemoteConfigSettings(developerModeEnabled: true)
+        let remoteConfigSettings = RemoteConfigSettings()
+        remoteConfigSettings.minimumFetchInterval = 0
         remoteConfig = RemoteConfig.remoteConfig()
-        remoteConfig.configSettings = remoteConfigSettings!
+        remoteConfig.configSettings = remoteConfigSettings
+
     }
     
     func fetchConfig() {
         var expirationDuration: Double = 3600
         // if in developer mode, set cacheExpiration 0 so each fetch will retrieve values from the server
-        if remoteConfig.configSettings.isDeveloperModeEnabled {
-            expirationDuration = 0
-        }
-        
+
         // cacheExpirationSeconds is set to cacheExpiration to make fetching faser in developer mode
         remoteConfig.fetch(withExpirationDuration: expirationDuration) { (status, error) in
             if status == .success {
                 print("Config fetched!")
-                self.remoteConfig.activateFetched()
+                self.remoteConfig.activate()
+                        
+
                 let friendlyMsgLength = self.remoteConfig["friendly_msg_length"]
                 if friendlyMsgLength.source != .static {
-                    self.msglength = friendlyMsgLength.numberValue!
+                    self.msglength = friendlyMsgLength.numberValue
                     print("Friendly msg length config: \(self.msglength)")
                 }
             } else {
@@ -156,7 +157,7 @@ class FCViewController: UIViewController, UINavigationControllerDelegate {
         
         if isSignedIn {
             // remove background blur (will use when showing image messages)
-            messagesTable.rowHeight = UITableViewAutomaticDimension
+            messagesTable.rowHeight = UITableView.automaticDimension
             messagesTable.estimatedRowHeight = 122.0
             backgroundBlur.effect = nil
             messageTextField.delegate = self
@@ -312,7 +313,7 @@ extension FCViewController: UITableViewDelegate, UITableViewDataSource {
     }
     
     func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
-        return UITableViewAutomaticDimension
+        return UITableView.automaticDimension
     }
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
@@ -357,7 +358,7 @@ extension FCViewController: UIImagePickerControllerDelegate {
     
     func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [String:Any]) {
         // constant to hold the information about the photo
-        if let photo = info[UIImagePickerControllerOriginalImage] as? UIImage, let photoData = UIImageJPEGRepresentation(photo, 0.8) {
+        if let photo = info[UIImagePickerController.InfoKey.originalImage.rawValue] as? UIImage, let photoData = photo.jpegData(compressionQuality: 0.8) {
             // call function to upload photo message
             sendPhotoMessage(photoData: photoData)
         }
@@ -391,31 +392,31 @@ extension FCViewController: UITextFieldDelegate {
     
     // MARK: Show/Hide Keyboard
     
-    func keyboardWillShow(_ notification: Notification) {
+    @objc func keyboardWillShow(_ notification: Notification) {
         if !keyboardOnScreen {
             view.frame.origin.y -= keyboardHeight(notification)
         }
     }
     
-    func keyboardWillHide(_ notification: Notification) {
+    @objc func keyboardWillHide(_ notification: Notification) {
         if keyboardOnScreen {
             view.frame.origin.y += keyboardHeight(notification)
         }
     }
     
-    func keyboardDidShow(_ notification: Notification) {
+    @objc func keyboardDidShow(_ notification: Notification) {
         keyboardOnScreen = true
         dismissKeyboardRecognizer.isEnabled = true
         scrollToBottomMessage()
     }
     
-    func keyboardDidHide(_ notification: Notification) {
+    @objc func keyboardDidHide(_ notification: Notification) {
         dismissKeyboardRecognizer.isEnabled = false
         keyboardOnScreen = false
     }
     
     func keyboardHeight(_ notification: Notification) -> CGFloat {
-        return ((notification as NSNotification).userInfo![UIKeyboardFrameBeginUserInfoKey] as! NSValue).cgRectValue.height
+        return ((notification as NSNotification).userInfo![UIResponder.keyboardFrameBeginUserInfoKey] as! NSValue).cgRectValue.height
     }
     
     func resignTextfield() {
@@ -430,10 +431,10 @@ extension FCViewController: UITextFieldDelegate {
 extension FCViewController {
     
     func subscribeToKeyboardNotifications() {
-        subscribeToNotification(.UIKeyboardWillShow, selector: #selector(keyboardWillShow))
-        subscribeToNotification(.UIKeyboardWillHide, selector: #selector(keyboardWillHide))
-        subscribeToNotification(.UIKeyboardDidShow, selector: #selector(keyboardDidShow))
-        subscribeToNotification(.UIKeyboardDidHide, selector: #selector(keyboardDidHide))
+        subscribeToNotification(UIResponder.keyboardWillShowNotification, selector: #selector(keyboardWillShow))
+        subscribeToNotification(UIResponder.keyboardWillHideNotification, selector: #selector(keyboardWillHide))
+        subscribeToNotification(UIResponder.keyboardDidShowNotification, selector: #selector(keyboardDidShow))
+        subscribeToNotification(UIResponder.keyboardDidHideNotification, selector: #selector(keyboardDidHide))
     }
     
     func subscribeToNotification(_ name: NSNotification.Name, selector: Selector) {
